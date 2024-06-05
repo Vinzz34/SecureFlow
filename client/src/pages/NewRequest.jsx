@@ -8,19 +8,32 @@ import { ethers } from 'ethers'
 
 const NewRequest = () => {
 
-  const [form,setForm] = useState({
-    description: '',
-    value: '',
-    recipient: '',
-  });
-
   const {state} = useLocation()
 
   const navigate = useNavigate();
 
-  const {createRequest,address} = useStateContext()
+  const {createRequest,contract,address,getBalance} = useStateContext()
 
   const [loading,setLoading] = useState(false)
+  const [balance,setBalance] = useState(0)
+  const [error,setError] = useState(false)
+
+  const [form,setForm] = useState({
+    description: '',
+    value: '',
+    recipient: address,
+  });
+
+  const getCurrentBalance = async () => {
+    const balance = await getBalance(state.pId)
+    setBalance(balance)
+  }
+
+  useEffect(() => {
+    if(contract){
+      getCurrentBalance();
+    }
+  }, [contract, address])
 
   function handleFormChange(fieldName,e){
     setForm({...form,[fieldName] : e.target.value});
@@ -29,10 +42,16 @@ const NewRequest = () => {
   async function handleSubmit(e){
     e.preventDefault()
      
-    setLoading(true)
-    await createRequest({pId: state.pId,...form, value: ethers.utils.parseUnits(form.value,18)})
-    setLoading(false)
-    navigate(`/fundraiser-details/${state.title}/requests`,{state: state});
+
+    if(form.value > balance){
+      setError(true)
+    }
+    else{
+      setLoading(true)
+      await createRequest({pId: state.pId,...form, value: ethers.utils.parseUnits(form.value,18)})
+      setLoading(false)
+      navigate(`/fundraiser-details/${state.title}/requests`,{state: state});
+    }
   }
 
   return (
@@ -54,13 +73,17 @@ const NewRequest = () => {
                 value={form.value}
                 handleChange={(e) => handleFormChange('value',e)} 
             />
+            {error && (
+              <p className='text-xs text-red-500'>Not enough Balance</p>
+            )}
             <FormField
                 labelName="Recipient Wallet Address"
                 inputType="text"
                 value={form.recipient}
-                handleChange={(e) => handleFormChange('recipient',e)} 
+                handleChange={(e) => handleFormChange('recipient',e)}
             />
-            <CustomButton disabled={!state} text="Create New Request" btnType="submit" />
+            <CustomButton disabled={!state} text="Create New Request" btnType="submit"  />
+
         </form>
     </section>
   )
